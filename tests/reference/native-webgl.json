@@ -1,0 +1,17 @@
+{
+  "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3, Unspecified Version)",
+  "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+  "plot": "scatter3d",
+  "font": {
+    "family": "Arial",
+    "size": 13.5
+  },
+  "aspect": {
+    "x": 2,
+    "y": 2,
+    "z": 1
+  },
+  "points": 2932,
+  "svgContainsRaster": true,
+  "errors": []
+}

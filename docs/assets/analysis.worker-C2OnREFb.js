@@ -1,6 +1,6 @@
-const e=`https://cdn.jsdelivr.net/pyodide/v314.0.7/full/`;let t;self.onmessage=async({data:n})=>{let{id:r,payload:i}=n;try{t||=(async()=>{self.postMessage({id:r,progress:`Downloading the analysis engine…`});let{loadPyodide:t}=await import(
+const e=`https://cdn.jsdelivr.net/pyodide/v314.0.7/full/`;let t;self.onmessage=async({data:n})=>{let{id:r,payload:i,version:a}=n;try{t||=(async()=>{self.postMessage({id:r,version:a,progress:`Downloading the analysis engine…`});let{loadPyodide:t}=await import(
 /* @vite-ignore */
-`${e}pyodide.mjs`),n=await t({indexURL:e});return self.postMessage({id:r,progress:`Loading scientific libraries…`}),await n.loadPackage(`scikit-learn`),await n.runPythonAsync(`import json
+`${e}pyodide.mjs`),n=await t({indexURL:e});return self.postMessage({id:r,version:a,progress:`Loading scientific libraries…`}),await n.loadPackage(`scikit-learn`),await n.runPythonAsync(`import json
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -33,14 +33,22 @@ def analyze(payload):
     if method == 'pca':
         model = PCA(n_components=min(clean.shape[1], len(clean)-1), svd_solver='full')
         scores = model.fit_transform(clean)
+        if settings.get('compatibility'):
+            # sklearn 1.4 full-SVD PCA chose signs using the left singular vectors.
+            for j in range(scores.shape[1]):
+                if scores[np.argmax(np.abs(scores[:, j])), j] < 0:
+                    scores[:, j] *= -1
+                    model.components_[j] *= -1
         loadings = model.components_.T.tolist()
     else:
-        y = np.array([str(v) for v in labels])
+        y = np.array(labels) if settings.get('compatibility') else np.array([str(v) for v in labels])
         classes = np.unique(y)
         if len(classes) < 2:
             raise ValueError('LDA requires at least two classes in the active subset.')
         if len(clean) <= len(classes):
             raise ValueError('LDA needs more complete rows than classes.')
+        if not any(np.ptp(clean[y == cls], axis=0).any() for cls in classes):
+            raise ValueError('LDA needs variation within at least one class. The selected data is degenerate.')
         model = LinearDiscriminantAnalysis(n_components=min(clean.shape[1], len(classes)-1), solver='svd')
         scores = model.fit_transform(clean, y)
         loadings = []
@@ -58,4 +66,5 @@ def analyze(payload):
         'droppedFeatures': dropped_features, 'standardize': settings['standardize']
     }
     return json.dumps(result, allow_nan=False)
-`),n})();let n=await t;self.postMessage({id:r,progress:`Analyzing your selected data…`}),n.globals.set(`analysis_payload`,JSON.stringify(i));let a=JSON.parse(await n.runPythonAsync(`analyze(analysis_payload)`));n.globals.delete(`analysis_payload`),self.postMessage({id:r,result:a})}catch(e){t=void 0,self.postMessage({id:r,error:`Analysis failed: ${e instanceof Error?e.message:String(e)}`})}};
+`),n})();let n=await t;self.postMessage({id:r,version:a,progress:`Analyzing your selected data…`}),n.globals.set(`analysis_payload`,JSON.stringify(i));let o=JSON.parse(await n.runPythonAsync(`analyze(analysis_payload)`));n.globals.delete(`analysis_payload`),self.postMessage({id:r,version:a,result:o})}catch(e){let n=e instanceof Error?e.message:String(e),i=n.split(`
+`).reverse().find(e=>/^(ValueError|IndexError|LinAlgError):/.test(e.trim()));i||(t=void 0),self.postMessage({id:r,version:a,errorKind:i?`input`:`runtime`,error:`Analysis failed: ${i?i.replace(/^[^:]+:\s*/,``):n}`})}};

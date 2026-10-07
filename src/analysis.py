@@ -31,14 +31,22 @@ def analyze(payload):
     if method == 'pca':
         model = PCA(n_components=min(clean.shape[1], len(clean)-1), svd_solver='full')
         scores = model.fit_transform(clean)
+        if settings.get('compatibility'):
+            # sklearn 1.4 full-SVD PCA chose signs using the left singular vectors.
+            for j in range(scores.shape[1]):
+                if scores[np.argmax(np.abs(scores[:, j])), j] < 0:
+                    scores[:, j] *= -1
+                    model.components_[j] *= -1
         loadings = model.components_.T.tolist()
     else:
-        y = np.array([str(v) for v in labels])
+        y = np.array(labels) if settings.get('compatibility') else np.array([str(v) for v in labels])
         classes = np.unique(y)
         if len(classes) < 2:
             raise ValueError('LDA requires at least two classes in the active subset.')
         if len(clean) <= len(classes):
             raise ValueError('LDA needs more complete rows than classes.')
+        if not any(np.ptp(clean[y == cls], axis=0).any() for cls in classes):
+            raise ValueError('LDA needs variation within at least one class. The selected data is degenerate.')
         model = LinearDiscriminantAnalysis(n_components=min(clean.shape[1], len(classes)-1), solver='svd')
         scores = model.fit_transform(clean, y)
         loadings = []

@@ -1,6 +1,6 @@
 # Third-party notices and data attribution
 
-Wiz.io's application code, interface and illustrative artwork were written independently. No code, documentation or images from the original Wiz repository are included.
+Wiz.io's application code and interface were written independently. No code, documentation or images from the original Wiz repository are included.
 
 The application uses the following third-party projects. Their licenses govern their components; upstream copyright and license notices are retained in packages and generated bundles where supplied.
 
@@ -20,17 +20,12 @@ The application uses the following third-party projects. Their licenses govern t
 | joblib / threadpoolctl | BSD-3-Clause | https://github.com/joblib/joblib / https://github.com/joblib/threadpoolctl |
 | Vitest | MIT | https://github.com/vitest-dev/vitest |
 | Playwright | Apache-2.0 | https://github.com/microsoft/playwright |
-| DM Sans / Manrope fonts | SIL Open Font License 1.1 | https://fonts.google.com/specimen/DM+Sans / https://fonts.google.com/specimen/Manrope |
 
 ## Public example data
 
-Iris and Wine are sourced from the scikit-learn distribution's public dataset files. Wiz.io adds a sample-label column and human-readable class labels; measurements are preserved.
+Published oxygen Table S2 retains CC BY-NC-ND 4.0, independently of the original Wiz code license. It is included unchanged. S&P 500, Iris and Wine retain CC BY 4.0. Synthetic time series is MIT. Sources, authors, versions, changes and checksums are recorded in [the data manifest](public/examples/provenance.json) and [data licenses](public/examples/LICENSES.md).
 
-- **Iris**: Fisher's classic iris dataset, obtained from `sklearn/datasets/data/iris.csv`. UCI record: https://archive.ics.uci.edu/dataset/53/iris. Citation: Fisher, R. A. (1936), *The use of multiple measurements in taxonomic problems*, Annals of Eugenics 7, 179–188.
-- **Wine**: wine-recognition data by Forina et al., obtained from `sklearn/datasets/data/wine_data.csv`. UCI record: https://archive.ics.uci.edu/dataset/109/wine. Citation: Aeberhard, S. and Forina, M. (1991), *Wine*, UCI Machine Learning Repository, https://doi.org/10.24432/C5PC7J.
-- **Time series**: 180 deterministic synthetic observations generated for Wiz.io. These do not represent a real experiment, company or market.
-
-Upstream scikit-learn source: https://github.com/scikit-learn/scikit-learn/tree/main/sklearn/datasets/data.
+No original Wiz code, images, logos, styles or private examples are bundled. Original reference output is generated only for independently supplied fixture data. Arial is supplied by the browser/system; no remote font is loaded.
 
 ## scikit-learn license
 

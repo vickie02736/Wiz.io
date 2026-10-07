@@ -1,0 +1,72 @@
+{
+  "wine": {
+    "rows": 178,
+    "columns": [
+      "Sample #",
+      "Cultivar",
+      "Alcohol",
+      "Malic Acid",
+      "Ash",
+      "Alcalinity of Ash",
+      "Magnesium",
+      "Total Phenols",
+      "Flavanoids",
+      "Nonflavanoid Phenols",
+      "Proanthocyanins",
+      "Color Intensity",
+      "Hue",
+      "OD280/OD315",
+      "Proline"
+    ],
+    "dtypeMatch": true,
+    "differences": []
+  },
+  "iris": {
+    "rows": 150,
+    "columns": [
+      "Label",
+      "Sepal Length, cm",
+      "Sepal Width, cm",
+      "Petal Length, cm",
+      "Petal Width, cm",
+      "Type"
+    ],
+    "dtypeMatch": true,
+    "differences": [
+      {
+        "row": 38,
+        "column": "Sepal Width, cm",
+        "reference": 3.1,
+        "public": 3.6
+      },
+      {
+        "row": 38,
+        "column": "Petal Length, cm",
+        "reference": 1.5,
+        "public": 1.4
+      },
+      {
+        "row": 35,
+        "column": "Petal Width, cm",
+        "reference": 0.1,
+        "public": 0.2
+      }
+    ]
+  },
+  "oxygen": {
+    "sheets": [
+      "1 bar",
+      "5 bar",
+      "10 bar",
+      "20 bar",
+      "30 bar",
+      "50 bar",
+      "80 bar",
+      "100 bar",
+      "140 bar",
+      "200 bar"
+    ],
+    "allCellsEqual": true,
+    "publishedSha256": "df6df97d593308d8fe900ff2ee10dde3fe3fa8b130004cbb20082a72e0baff5c"
+  }
+}

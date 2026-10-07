@@ -2,11 +2,12 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { Cell, ColumnKind, DataRow, Dataset, Filter, StoredDataset, ViewState } from './types';
 export const LIMITS = { bytes: 20 * 1024 * 1024, rows: 100_000, cells: 1_000_000 };
-export const isMissing = (v: Cell | undefined) => v == null || (typeof v === 'string' && v.trim() === '');
+export const isMissing = (v: Cell | undefined) => v == null || typeof v === 'number' && Number.isNaN(v) || (typeof v === 'string' && /^(?:\s*|NaN|NA|N\/A|NULL|None|<NA>|#N\/A)$/i.test(v.trim()));
 export function numberValue(v: Cell | undefined): number | null {
   if (isMissing(v)) return null;
   if (typeof v === 'number') return v;
   const text = String(v).trim();
+  if (/^[+-]?inf(?:inity)?$/i.test(text)) return text.startsWith('-') ? -Infinity : Infinity;
   if (!/^[+-]?(?:(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?|Infinity)$/i.test(text)) return null;
   return Number(text);
 }
@@ -15,7 +16,8 @@ export function typedCell(value: Cell, kind: ColumnKind): Cell {
   return kind === 'number' ? numberValue(value) : String(value);
 }
 export function normalizeTable(table: unknown[][], name: string, source: string): StoredDataset {
-  const clean = table.filter(row => row.some(v => v != null && String(v).trim() !== ''));
+  const start = table.findIndex(row => row.some(v => v != null && String(v).trim() !== ''));
+  const clean = start < 0 ? [] : table.slice(start);
   if (clean.length < 2) throw new Error(`${name}: a header and at least one data row are required.`);
   const width = clean[0].length;
   if (clean.some(row => row.length > width)) throw new Error(`${name}: a row has more fields than the header. Check the delimiter.`);
@@ -29,12 +31,13 @@ export function normalizeTable(table: unknown[][], name: string, source: string)
     if (name !== base) warnings.push(`Duplicate column “${base}” renamed to “${name}”.`);
     names.add(name);
     const values = clean.slice(1).map(row => asCell(row[i])).filter(v => !isMissing(v));
-    const kind: ColumnKind = values.length && values.every(v => numberValue(v) !== null) ? 'number'
+    const kind: ColumnKind = values.every(v => numberValue(v) !== null) ? 'number'
       : values.length && values.every(v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}(?:[T ].*)?$/.test(v) && Number.isFinite(Date.parse(v))) ? 'date' : 'text';
-    return { id: `c${i}`, name, kind };
+    const legacyType = kind === 'number' ? values.some(v => typeof v === 'string' ? /[.eE]/.test(v) || !Number.isFinite(Number(v)) : !Number.isInteger(v)) || values.length !== clean.length - 1 ? 'float' : 'integer' : kind;
+    return { id: `c${i}`, name, kind, legacyType, distinct: new Set(values.map(v => String(typedCell(v,kind)))).size } as import('./types').Column;
   });
   const rows = clean.slice(1).map((row, id) => ({ id, values: columns.map((_, i) => asCell(row[i])) }));
-  return { id: crypto.randomUUID(), name, source, columns, rows, rowCount: rows.length, warnings };
+  return { id: crypto.randomUUID(), version: 1, name, source, columns, rows, rowCount: rows.length, warnings };
 }
 function asCell(v: unknown): Cell {
   if (v == null || v === '') return null;
@@ -64,7 +67,7 @@ export async function parseFile(file: File): Promise<StoredDataset[]> {
   const first = text.split(/\r?\n/).find(line => line.trim()) ?? '';
   const whitespace = ['txt', 'dat'].includes(ext ?? '') && !/[,;\t|]/.test(first);
   const parsed = whitespace ? text.trim().split(/\r?\n/).filter(l => l.trim()).map(l => l.trim().split(/\s+/))
-    : Papa.parse<string[]>(text, { delimiter: ext === 'tsv' ? '\t' : '', skipEmptyLines: 'greedy' });
+    : Papa.parse<string[]>(text, { delimiter: ext === 'tsv' ? '\t' : '', skipEmptyLines: true });
   if (!Array.isArray(parsed) && parsed.errors.some(e => e.code !== 'UndetectableDelimiter')) throw new Error(`${file.name}: ${parsed.errors[0].message}`);
   return [normalizeTable(Array.isArray(parsed) ? parsed : parsed.data, file.name, file.name)];
 }
@@ -77,9 +80,16 @@ function matches(dataset: StoredDataset, row: DataRow, filter: Filter): boolean 
   const value = getCell(dataset, row, filter.column);
   if (filter.op === 'empty') return isMissing(value);
   const input = filter.value;
-  if (filter.op === 'contains') return String(value ?? '').toLowerCase().includes(input.toLowerCase());
-  if (filter.op === 'eq') return String(value ?? '') === input;
-  if (filter.op === 'neq') return String(value ?? '') !== input;
+  if (filter.op === 'contains') {
+    if (!filter.legacy) return String(value ?? '').toLowerCase().includes(input.toLowerCase());
+    try { return value != null && new RegExp(input).test(String(value)); }
+    catch { throw new Error(`Invalid regular expression for “${dataset.columns.find(c => c.id === filter.column)?.name}”.`); }
+  }
+  if (filter.op === 'datestartswith') return value != null && String(value).startsWith(input);
+  if (filter.op === 'eq' || filter.op === 'neq') {
+    const same = typeof value === 'number' && numberValue(input) !== null ? value === numberValue(input) : String(value ?? '') === input;
+    return filter.op === 'eq' ? same : !same;
+  }
   if (value === null) return false;
   const kind = dataset.columns.find(c => c.id === filter.column)?.kind;
   const left = kind === 'date' ? Date.parse(String(value)) : numberValue(value);
@@ -88,7 +98,7 @@ function matches(dataset: StoredDataset, row: DataRow, filter: Filter): boolean 
   return filter.op === 'gt' ? left > right : filter.op === 'gte' ? left >= right : filter.op === 'lt' ? left < right : left <= right;
 }
 export function resolveRows(dataset: StoredDataset, view: ViewState) {
-  const matching = dataset.rows.filter(row => view.filters.every(f => matches(dataset, row, f)));
+  const matching = (view.limit == null ? dataset.rows : dataset.rows.slice(0, view.limit)).filter(row => view.filters.every(f => matches(dataset, row, f)));
   if (view.sort) {
     const { column, direction } = view.sort;
     matching.sort((a, b) => {
@@ -102,5 +112,8 @@ export function resolveRows(dataset: StoredDataset, view: ViewState) {
   return { matching, active };
 }
 export function csvFor(dataset: StoredDataset, rows: DataRow[]): string {
-  return Papa.unparse({ fields: dataset.columns.map(c => c.name), data: rows.map(row => dataset.columns.map(c => getCell(dataset, row, c.id))) }, { escapeFormulae: true });
+  return Papa.unparse({ fields: dataset.columns.map(c => c.name), data: rows.map(row => dataset.columns.map(c => {
+    const value = getCell(dataset,row,c.id);
+    return c.legacyType === 'float' && typeof value === 'number' && Number.isInteger(value) ? `${value}.0` : value;
+  })) }, { escapeFormulae: /^(?:[=+@\t\r]|-(?!\d+(?:\.0)?$))/ });
 }

@@ -7,7 +7,7 @@ describe('data integrity', () => {
     const d = normalizeTable(table,'test','test');
     const rows = resolveRows(d,{filters:[{column:'c1',op:'gte',value:'2'}],selected:[0,2],sort:{column:'c1',direction:'desc'}});
     expect(rows.matching.map(r=>r.id)).toEqual([2,1]); expect(rows.active.map(r=>r.id)).toEqual([2]);
-    expect(csvFor(d,rows.active)).toContain('c,3,A'); expect(csvFor(d,rows.active)).not.toContain('b,2,B');
+    expect(csvFor(d,rows.active)).toContain('c,3.0,A'); expect(csvFor(d,rows.active)).not.toContain('b,2.0,B');
   });
   it('never falls back to all rows for an empty selection intersection', () => {
     const d = normalizeTable(table,'test','test');
@@ -51,4 +51,10 @@ describe('import formats',()=>{
     await expect(parseFile(new File(['x\na'],'a.json'))).rejects.toThrow(/use CSV/);
     await expect(parseFile(new File([new Uint8Array(LIMITS.bytes+1)],'huge.csv'))).rejects.toThrow(/20 MB/);
   });
+});
+it('retains interior missing records, recognizes NA/inf and preserves float CSV types',async()=>{
+ const d=(await parseFile(new File(['label,x,y\na,1.0,2.5\n,,\nb,NA,3.5\nc,inf,4.5\nd,2.0,5.5\n'],'missing.csv')))[0];
+ expect(d.rowCount).toBe(5);expect(d.columns[1].legacyType).toBe('float');expect(typedCell(d.rows[1].values[1],'number')).toBeNull();expect(typedCell(d.rows[2].values[1],'number')).toBeNull();expect(typedCell(d.rows[3].values[1],'number')).toBe(Infinity);
+ const roundtrip=(await parseFile(new File([csvFor(d,[d.rows[0],d.rows[4]])],'roundtrip.csv')))[0];expect(roundtrip.columns[1].legacyType).toBe('float');expect(roundtrip.rows.map(r=>Number(r.values[1]))).toEqual([1,2]);
+ const negative=normalizeTable([['x'],['-1.0'],['-2.0']],'negative','negative');const negativeCsv=csvFor(negative,negative.rows);expect(negativeCsv).toContain('-1.0');expect(negativeCsv).not.toContain("'-1");expect((await parseFile(new File([negativeCsv],'negative.csv')))[0].columns[0].legacyType).toBe('float');
 });

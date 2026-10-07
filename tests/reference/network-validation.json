@@ -1,0 +1,17 @@
+{
+  "url": "Production preview of final docs build",
+  "requestCount": 17,
+  "methods": [
+    "GET"
+  ],
+  "origins": [
+    "http://127.0.0.1:4173",
+    "https://cdn.jsdelivr.net"
+  ],
+  "userPayloadDetected": false,
+  "storage": {
+    "localStorage": [],
+    "sessionStorage": [],
+    "indexedDB": []
+  }
+}
