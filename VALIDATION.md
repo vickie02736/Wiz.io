@@ -16,4 +16,11 @@ Date: 2026-10-07. Reference SHA: `ff94a3805889f76c050fbea7f9b1bf6d4b15dfab`.
 
 ## Publication verification
 
-The release is configured for GitHub Pages `main/docs` at https://vickie02736.github.io/Wiz.io/ . Live-site results are recorded after the deployment finishes. The release does not claim unknown historical dependencies, pixel-identical Dash widgets, all possible numerical inputs or browser/device combinations; see `COMPATIBILITY.md` for exact scope and intentional differences.
+The public repository publishes GitHub Pages from `main/docs` at **https://vickie02736.github.io/Wiz.io/**. Application release commit: `5e17049f3770a57849e62d43008d5acee08e8827`.
+
+- GitHub reports Pages **built** for that release; live HTML matches the committed production HTML byte-for-byte.
+- **All 36 live-site Playwright workflows passed**, 12 each in Chromium, Firefox and WebKit, using `WIZ_BASE_URL=https://vickie02736.github.io/Wiz.io/ npm run test:e2e`. Real CDN-based PCA/LDA, downloads, imports, examples, filters, selection, clear, cancellation and retry were exercised through the public URL.
+- A separate headed Chromium check on the live URL rendered 2,932 oxygen points with Apple M3 hardware WebGL, downloaded a 3D SVG containing a PNG raster layer, imported a sentinel-containing private test file and ran PCA. It observed **20 GET requests**, only to GitHub Pages and fixed jsDelivr assets; no dataset sentinel in requests, no page errors, and empty localStorage/sessionStorage/IndexedDB. Evidence: `tests/reference/live-validation.json`.
+- Validation notes were committed separately after the live checks; no runtime source or generated application assets changed during that documentation update.
+
+The release does not claim unknown historical dependencies, pixel-identical Dash widgets, all possible numerical inputs or browser/device combinations; see `COMPATIBILITY.md` for exact scope and intentional differences.
