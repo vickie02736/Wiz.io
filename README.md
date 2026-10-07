@@ -17,6 +17,8 @@ The application and help are in English. All user data stays in browser memory. 
 
 **Advanced** holds box/lasso subset selection, explicit plot types/grouping/labels, numeric type correction, integer/selected features, scaling overrides, manual analysis, component controls, loadings, scores with settings, full-column subset CSV and PNG. A deterministic synthetic time series is in Advanced examples.
 
+A progress bar in the chart area shows the current loading stage while preparing data, loading chart tools or analysis, and rendering a visualization. It disappears after drawing completes, or when a failed/cancelled operation ends. The bar is indeterminate: rendering and scientific initialization do not provide a reliable percentage. Reduced-motion preferences are respected.
+
 See the website's **Help** and [COMPATIBILITY.md](COMPATIBILITY.md) for detailed behavior, fixed bugs, tested coverage and remaining platform differences. This is functional compatibility with a fixed source/reference environment, not a claim of identical pixels or Kesler's unrecorded historical deployment.
 
 ## Data rules and privacy

@@ -35,7 +35,7 @@ export default function App() {
 }
 function Workspace({ tool, example, quickExample }: { tool: Tool; example?: Example; quickExample?: (e: Example) => void }) {
   const client = useRef<WorkerClient | null>(null), engine = useRef<WorkerClient | null>(null), input = useRef<HTMLInputElement>(null), graph = useRef<PlotHandle>(null), varianceGraph = useRef<PlotHandle>(null);
-  const owned = useRef<string[]>([]), importEpoch = useRef(0), queryEpoch = useRef(0), analysisEpoch = useRef(0), lastAutomatic = useRef('');
+  const owned = useRef<string[]>([]), importEpoch = useRef(0), exampleEpoch = useRef(0), queryEpoch = useRef(0), analysisEpoch = useRef(0), lastAutomatic = useRef('');
   const [datasets, setDatasets] = useState<Dataset[]>([]), [index, setIndex] = useState(0); const dataset = datasets[index];
   const [plot, setPlot] = useState<PlotSettings>({...defaultPlot, type: tool === 'lines' ? 'line' : 'auto',webglCutoff:example?.id.startsWith('oxygen')?2500:7500});
   const [view, setView] = useState<ViewState>({filters:[],selected:[]}), [query, setQuery] = useState<QueryResult>(), [page, setPage] = useState(0), [table, setTable] = useState(false);
@@ -45,6 +45,7 @@ function Workspace({ tool, example, quickExample }: { tool: Tool; example?: Exam
   const [result, setResult] = useState<AnalysisResult>(), [resultSignature, setResultSignature] = useState('');
   const [cx, setCx] = useState(0), [cy, setCy] = useState(1), [cz, setCz] = useState(2), [threeD, setThreeD] = useState(false);
   const [importing, setImporting] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [playing, setPlaying] = useState(true);
+  const [loadingExample, setLoadingExample] = useState(!!example), [querying, setQuerying] = useState(false);
   const [years, setYears] = useState([2021,2023]);
   const signature = JSON.stringify([dataset?.id,dataset?.version,view,settings]); const latestSignature = useRef(signature); latestSignature.current = signature;
   const stale = !!result && signature !== resultSignature; const current = result && !stale ? result : undefined;
@@ -52,15 +53,16 @@ function Workspace({ tool, example, quickExample }: { tool: Tool; example?: Exam
   useEffect(() => {
     client.current = new WorkerClient(new Worker(new URL('./workers/data.worker.ts',import.meta.url),{type:'module'}));
     if (example) void loadExample(example.file);
-    return () => { importEpoch.current++; queryEpoch.current++; analysisEpoch.current++; client.current?.terminate(); engine.current?.terminate(); };
+    return () => { importEpoch.current++; exampleEpoch.current++; queryEpoch.current++; analysisEpoch.current++; client.current?.terminate(); engine.current?.terminate(); };
   }, []);
   useEffect(() => {
     const epoch = ++queryEpoch.current;
-    if (!dataset) { setQuery(undefined); return; }
+    if (!dataset) { setQuery(undefined); setQuerying(false); return; }
+    setQuerying(true);
     void client.current!.request<QueryResult>('query',{datasetId:dataset.id,view,page,pageSize:50,columns:chartColumns,rangesReferenceId:example?.id.startsWith('oxygen')?datasets.at(-1)?.id:undefined,axes:{x:{id:plot.x,scale:plot.xScale},y:{id:plot.y,scale:plot.yScale},z:{id:plot.z,scale:'linear'}}},undefined,dataset.version).then(q => {
       if (epoch !== queryEpoch.current) return;
       if (page && page >= q.pageCount) { setPage(Math.max(0,q.pageCount-1)); return; } setQuery(q);
-    }).catch(e => { if (epoch === queryEpoch.current) setError(e.message); });
+    }).catch(e => { if (epoch === queryEpoch.current) setError(e.message); }).finally(() => { if (epoch === queryEpoch.current) setQuerying(false); });
   }, [dataset,view,page,JSON.stringify(chartColumns),plot.xScale,plot.yScale]);
   useEffect(() => {
     if (example?.id !== 'oxygen-dynamic' || !playing || !dataset) return;
@@ -100,13 +102,14 @@ function Workspace({ tool, example, quickExample }: { tool: Tool; example?: Exam
     finally { if (epoch === importEpoch.current) { setImporting(false); if (input.current) input.current.value=''; } }
   }
   async function loadExample(file: string) {
-    const epoch = importEpoch.current;
-    try { const response = await fetch(`${import.meta.env.BASE_URL}examples/${file}`); if (!response.ok) throw new Error('Unable to load the example. Retry using its button.'); const blob = await response.blob(); if (epoch === importEpoch.current) await importFiles([new File([blob],file)]); }
-    catch(e) { setError((e as Error).message); }
+    const epoch = ++exampleEpoch.current; setLoadingExample(true); setError('');
+    try { const response = await fetch(`${import.meta.env.BASE_URL}examples/${file}`); if (!response.ok) throw new Error('Unable to load the example. Retry using its button.'); const blob = await response.blob(); if (epoch === exampleEpoch.current) { setLoadingExample(false); await importFiles([new File([blob],file)]); } }
+    catch(e) { if (epoch === exampleEpoch.current) setError((e as Error).message); }
+    finally { if (epoch === exampleEpoch.current) setLoadingExample(false); }
   }
   function cancelAnalysis() { analysisEpoch.current++; engine.current?.terminate(); engine.current=null; setAnalyzing(false); setProgress(''); setSuspended(true); setNotice('Analysis cancelled. Choose Run analysis to resume.'); }
   async function clear() {
-    importEpoch.current++; queryEpoch.current++; analysisEpoch.current++; engine.current?.terminate(); engine.current=null; setAnalyzing(false); setProgress('');
+    importEpoch.current++; exampleEpoch.current++; queryEpoch.current++; analysisEpoch.current++; engine.current?.terminate(); engine.current=null; setAnalyzing(false); setProgress(''); setLoadingExample(false); setQuerying(false);
     await client.current?.request('clear',{ids:owned.current}); owned.current=[]; setDatasets([]); setIndex(0); setQuery(undefined); setView({filters:[],selected:[]}); setFilters({}); setResult(undefined); setSuspended(false); lastAutomatic.current=''; setPlot({...defaultPlot,type:tool==='lines'?'line':'auto'}); setError(''); setNotice('Data cleared from page memory. You can upload again.');
   }
   async function runAnalysis() {
@@ -149,13 +152,14 @@ function Workspace({ tool, example, quickExample }: { tool: Tool; example?: Exam
   const filterable = !(tool==='lines'&&plot.lineInputType===2)&&example?.id!=='stocks';
   const sortable = tool!=='analysis'&&!(tool==='lines'&&plot.lineInputType===2);
   const tableColumns = dataset?.columns.filter(c=>tool==='analysis'||chartColumns.includes(c.id))??[];
+  const chartLoading = loadingExample ? 'Loading example data…' : importing ? 'Reading data…' : analyzing ? progress || 'Preparing analysis…' : querying ? 'Preparing chart data…' : undefined;
   return <section className="workspace"><h1>{example?.title ?? ({scatter:'Scatter plots',lines:'Line plots',analysis:'Principal component analysis / Linear discriminant analysis'})[tool]}</h1>
     <div className={`upload ${datasets.length?'disabled':''}`} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!datasets.length&&!example)void importFiles(Array.from(e.dataTransfer.files));}}>
-      {example ? <span>{example.detail} {dataset?'':<button onClick={()=>void loadExample(example.file)}>Load example</button>}</span> : <><input ref={input} type="file" multiple accept=".csv,.tsv,.txt,.dat,.xlsx,.xls,.ods" aria-label="Import files" disabled={!!datasets.length||importing} onChange={e=>void importFiles(Array.from(e.target.files??[]))}/><span>{importing?'Reading data…':datasets.length?'Clear Data before uploading new files.':'Drag and drop or select files · CSV, Excel, ODS, TXT/DAT, TSV'}</span></>}
+      {example ? <span>{example.detail} {dataset?'':<button disabled={loadingExample||importing} onClick={()=>void loadExample(example.file)}>Load example</button>}</span> : <><input ref={input} type="file" multiple accept=".csv,.tsv,.txt,.dat,.xlsx,.xls,.ods" aria-label="Import files" disabled={!!datasets.length||importing} onChange={e=>void importFiles(Array.from(e.target.files??[]))}/><span>{importing?'Reading data…':datasets.length?'Clear Data before uploading new files.':'Drag and drop or select files · CSV, Excel, ODS, TXT/DAT, TSV'}</span></>}
     </div>
     {error&&<div role="alert" className="banner error">{error}</div>}{notice&&<div role="status" className="banner">{notice}</div>}
     {tool==='analysis'&&<div className="analysis-status">{analyzing?<><span role="status">{progress}</span><button onClick={cancelAnalysis}>Cancel</button></>:<><span>{stale?'Previous result is out of date.':current?`${current.scores.length} analyzed rows · ${current.features.length} features · ${current.droppedRows} incomplete rows excluded${current.droppedFeatures.length?` · Constant features excluded: ${current.droppedFeatures.join(', ')}`:''}`:dataset?'Default: floating-point features only. PCA standardizes; LDA does not.':'Upload a dataset or open an example.'}</span>{dataset&&<button className="run-analysis" onClick={()=>void runAnalysis()}>Run analysis</button>}</>}</div>}
-    <div className={tool==='analysis'?'analysis-charts':'chart-area'}><Plot ref={graph} dataset={dataset} query={query} settings={plot} analysis={current?{result:current,x:cx,y:cy,z:cz,threeD}:undefined} selectPoints={selectPoints} onSelect={ids=>{setView(s=>({...s,selected:ids}));setPage(0);}} onAnnotate={annotation=>setPlot(s=>({...s,annotation}))}/>{tool==='analysis'&&<Plot ref={varianceGraph} dataset={dataset} query={undefined} settings={plot} analysis={current?{result:current,variance:true}:undefined} onSelect={()=>{}} onAnnotate={()=>{}} testId="variance-chart"/>}</div>
+    <div className={tool==='analysis'?'analysis-charts':'chart-area'}><Plot ref={graph} dataset={dataset} query={query} settings={plot} loading={chartLoading} analysis={current?{result:current,x:cx,y:cy,z:cz,threeD}:undefined} selectPoints={selectPoints} onSelect={ids=>{setView(s=>({...s,selected:ids}));setPage(0);}} onAnnotate={annotation=>setPlot(s=>({...s,annotation}))}/>{tool==='analysis'&&<Plot ref={varianceGraph} dataset={dataset} query={undefined} settings={plot} loading={chartLoading} analysis={current?{result:current,variance:true}:undefined} onSelect={()=>{}} onAnnotate={()=>{}} testId="variance-chart"/>}</div>
     {dataset&&<>
       <div className="settings">
         {tool==='scatter'?<><Select label="X" value={plot.x} change={v=>update({x:v})}>{options()}</Select><Scale label="X scale" value={plot.xScale} change={v=>update({xScale:v as 'linear'|'log'})}/><Select label="Y" value={plot.y} change={v=>update({y:v})}>{options()}</Select><Scale label="Y scale" value={plot.yScale} change={v=>update({yScale:v as 'linear'|'log'})}/><Select label="Color" value={plot.color} change={v=>update({color:v})}>{options()}</Select><Select label="Size" value={plot.size} change={v=>update({size:v})}><option value="">None</option>{dataset.columns.slice(1).filter(c=>c.kind==='number').map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select><Select label="Z" value={plot.z} change={v=>update({z:v})} disabled={plot.type!=='scatter3d'}>{options()}</Select><fieldset><legend>Plot type</legend>{['2D','3D'].map((v,i)=><label key={v}><input type="radio" name="dimension" checked={i===0?plot.type!=='scatter3d':plot.type==='scatter3d'} onChange={()=>update({type:i?'scatter3d':'auto'})}/>{v}</label>)}</fieldset></>:tool==='lines'?<><fieldset><legend>Input type</legend>{[1,2].map(i=><label key={i}><input type="radio" name="inputType" checked={plot.lineInputType===i} onChange={()=>{update({lineInputType:i as 1|2,yColumns:[]});setView({filters:[],selected:[]});setFilters({});}}/>Type {i}</label>)}</fieldset><label className="field wide"><span>Y columns</span><select multiple aria-label="Y columns" value={plot.yColumns} onChange={e=>update({yColumns:Array.from(e.target.selectedOptions,o=>o.value)})}>{lineOptions(dataset,plot.lineInputType).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><Scale label="X scale" value={plot.xScale} change={v=>update({xScale:v as 'linear'|'log'})}/><Scale label="Y scale" value={plot.yScale} change={v=>update({yScale:v as 'linear'|'log'})}/></>:<><fieldset><legend>Analysis type</legend>{(['pca','lda'] as const).map(m=><label key={m}><input type="radio" name="method" checked={settings.method===m} onChange={()=>setMethod(m)}/>{m.toUpperCase()}</label>)}</fieldset><Select label="Classes" value={settings.label} change={v=>setSettings(s=>({...s,label:v}))}><option value="">None</option>{(settings.compatibility?classes:dataset.columns).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select><p className="hint">{settings.compatibility?`${legacyFeatures(dataset,settings.label).length} floating-point features selected automatically.`:'Advanced features are active.'}</p></>}

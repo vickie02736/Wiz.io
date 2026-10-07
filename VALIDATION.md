@@ -23,4 +23,11 @@ The public repository publishes GitHub Pages from `main/docs` at **https://vicki
 - A separate headed Chromium check on the live URL rendered 2,932 oxygen points with Apple M3 hardware WebGL, downloaded a 3D SVG containing a PNG raster layer, imported a sentinel-containing private test file and ran PCA. It observed **20 GET requests**, only to GitHub Pages and fixed jsDelivr assets; no dataset sentinel in requests, no page errors, and empty localStorage/sessionStorage/IndexedDB. Evidence: `tests/reference/live-validation.json`.
 - Validation notes were committed separately after the live checks; no runtime source or generated application assets changed during that documentation update.
 
+## Visualization loading indicator update
+
+- A chart-area loading indicator covers example retrieval, file/subset preparation, scientific initialization and calculation, lazy chart tools, and drawing. It reports actual stages without an invented percentage, and clears after drawing, errors or cancellation. Rendering yields for a paint with a bounded fallback so background tabs cannot indefinitely stall the drawing queue. Image exports wait for pending drawing.
+- **32 unit tests**, TypeScript and the production build passed. **All 42 distinct production-browser cases were validated** across Chromium, Firefox and WebKit: 41 passed in the full parallel run; the Firefox zoom/reset case timed out in that run and passed on an isolated rerun. Numerical comparisons, cancellation/retry, 3D, SVG/PNG, imports and subset workflows passed.
+- The six new browser checks (two per engine) deliberately delay chart-code and example requests. They verify visible stage text, indeterminate progress semantics, completion, failed example loading/retry, mobile width and navigation cleanup. Chart interaction checks now wait until loading finishes before inspecting or clicking rendered content.
+- The desktop loading view was captured and visually inspected. The indicator fits within the chart and respects reduced-motion preferences.
+
 The release does not claim unknown historical dependencies, pixel-identical Dash widgets, all possible numerical inputs or browser/device combinations; see `COMPATIBILITY.md` for exact scope and intentional differences.
