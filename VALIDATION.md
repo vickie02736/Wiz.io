@@ -30,4 +30,13 @@ The public repository publishes GitHub Pages from `main/docs` at **https://vicki
 - The six new browser checks (two per engine) deliberately delay chart-code and example requests. They verify visible stage text, indeterminate progress semantics, completion, failed example loading/retry, mobile width and navigation cleanup. Chart interaction checks now wait until loading finishes before inspecting or clicking rendered content.
 - The desktop loading view was captured and visually inspected. The indicator fits within the chart and respects reduced-motion preferences.
 
+## Full oxygen view by default — 2026-10-08
+
+At the user's request, the dynamic oxygen example now starts with all 2,932 rows. Timed replay is explicit, and **Show all rows** exits playback. Worksheet changes restore the complete view. Playback stops at completion instead of continuing to request/render the same full dataset.
+
+- **32 unit tests**, TypeScript and production build passed.
+- **12 targeted production-browser cases** passed across Chromium, Firefox and WebKit: full oxygen defaults and absence of periodic idle redraws, start/pause/show-all/restart, worksheet reset, Wine/stocks controls, clear/session behavior, and chart/example loading indicators.
+- An additional Chromium check advanced all 19 replay ticks using the browser test clock, confirmed all 2,932 rows and the restored **Start replay** button, and recorded **zero Plotly.react calls** over another ten simulated seconds after completion.
+- Help, README and compatibility notes record the requested default change and retained optional legacy replay.
+
 The release does not claim unknown historical dependencies, pixel-identical Dash widgets, all possible numerical inputs or browser/device combinations; see `COMPATIBILITY.md` for exact scope and intentional differences.

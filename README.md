@@ -37,7 +37,7 @@ User files/results exist only in page memory. They are not uploaded, written to 
 
 All examples are hosted with the site. [provenance.json](public/examples/provenance.json) records versions, sources, SHA-256 checksums and transformations. [Data licenses](public/examples/LICENSES.md) are separate from the application license.
 
-- **Oxygen**: unchanged Table S2 from [the Wiz paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC7691393/), ten pressure sheets of 2,932 rows. CC BY-NC-ND 4.0. The dynamic example replays existing rows, +150 every three seconds, with pause/restart controls; it is not a live experiment.
+- **Oxygen**: unchanged Table S2 from [the Wiz paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC7691393/), ten pressure sheets of 2,932 rows. CC BY-NC-ND 4.0. Both examples show all rows immediately. The dynamic example offers optional **Start replay**, adding 150 existing rows every three seconds, with pause/resume/restart and **Show all rows** controls. Replay stops at completion; worksheet changes restore the full view. It is not a live experiment.
 - **Stocks**: Ahmad Firdaus Cayzer's [S&P 500 CSV, Figshare v1](https://doi.org/10.6084/m9.figshare.26169322.v1), CC BY 4.0, 8,565 historical records from 1990–2023. Original CSV retained; plotting CSV normalizes calendar dates. Open/High/Low/Close replace the reference's unavailable company tickers.
 - **Wine / Iris**: fixed public UCI data distributed with scikit-learn, renamed/reordered for the reference. Wine values/dtypes match. Iris uses the current public measurements; three cells differ from the reference workbook and are listed in [example-comparison.json](tests/reference/example-comparison.json).
 - **Time series**: deterministic synthetic data, Advanced only.
